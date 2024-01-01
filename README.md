@@ -10,7 +10,7 @@ A PS script for processing grep results(Sakura Editor) for the Idea Processor Fr
 
 ＞./grep2fip.ps1
 
-grep検索結果ファイル名:N:\ネタの種\記事\Frieve\検索結果.txt
+grep検索結果ファイル名?N:\ネタの種\記事\Frieve\検索結果.txt
 
 fipファイル名:N:\ネタの種\記事\Frieve\検索結果.fip
 
