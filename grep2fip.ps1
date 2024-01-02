@@ -1,4 +1,4 @@
-#SJIS $Workfile: grep2fip.ps1 $
+#SJIS $Workfile: grep2fip.ps1 $$Revision: 6 $$Date: 24/01/01 15:11 $
 #$NoKeywords: $
 #
 #サクラエディタのgrep検索結果をFrieve Editorで活用するため、データ加工する。
@@ -6,7 +6,7 @@
 #
 
 #grep検索結果ファイル名をコンソールより入力する
-Write-Host -ForegroundColor green -NoNewline "grep検索結果ファイル名:"
+Write-Host -ForegroundColor green -NoNewline "grep検索結果ファイル名?"
 $tarfl = read-host
 #入力ファイルが存在することを確認する
 if(-not (Test-Path -Path $tarfl)){
@@ -117,7 +117,7 @@ $CardData | ForEach-Object {
     if ($_.StartsWith("フォルダ")) {
         $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
     }elseif($_.StartsWith($tarFolder)){
-        $fipflInfo = ($_ -split '\s+[[](SJIS|EUC)[]]:\s+')
+        $fipflInfo = ($_ -split '\s+[[](?:SJIS|EUC)[]]:\s+')
        ("13",`
         ("Title: " + (($fipflInfo[0] -split '\\')[-1])),`
         "Fixed:0",`
@@ -131,7 +131,7 @@ $CardData | ForEach-Object {
         ("Viewed:"  + $currDate.ToString("yyyy/MM/dd HH:mm:ss")) ,`
         "-" ,`
        "$($fipflInfo[0])" ,`
-       "$($fipflInfo[2])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
+       "$($fipflInfo[1])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
         $posX += 0.023 ; $posY += 0.1
     }
 } -Begin{
@@ -143,4 +143,3 @@ $CardData | ForEach-Object {
 }
 Write-Host -ForegroundColor Cyan "済み."
 Write-Host -ForegroundColor green "終了しました。"
-
