@@ -1,4 +1,4 @@
-#SJIS $Workfile: grep2fip.ps1 $$Revision: 12 $$Date: 24/01/06 12:17 $
+#SJIS $Workfile: grep2fip.ps1 $$Revision: 13 $$Date: 24/01/06 14:24 $
 #$NoKeywords: $
 #
 #サクラエディタのgrep検索結果をFrieve Editorで活用するため、データ加工する。
@@ -199,7 +199,7 @@ $CardData | ForEach-Object {
        }
 
         #カードデータ
-       ("14",`
+       ("15",`
         ("Title:" + $title),`
         ("Label:" + $labels),`
         "Fixed:0",`
@@ -212,8 +212,9 @@ $CardData | ForEach-Object {
         ("Updated:" + $dateUpdated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
         ("Viewed:"  + $dateViewed.ToString("yyyy/MM/dd HH:mm:ss")) ,`
         "-" ,`
-       "$($fipflInfo[0])" ,`
-       "$($fipflInfo[1])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
+       "$($fipflInfo[1])" ,`
+       "∞",`
+       "$($fipflInfo[0])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
         $posX += 0.023 ; $posY += 0.1
     }
 } -Begin{
