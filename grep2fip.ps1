@@ -1,67 +1,91 @@
-#SJIS $Workfile: grep2fip.ps1 $$Revision: 13 $$Date: 24/01/06 14:24 $
+#SJIS $Workfile: grep2fip.ps1 $$Revision: 14 $$Date: 25/01/13 23:26 $
 #$NoKeywords: $
 #
-#ã‚µã‚¯ãƒ©ã‚¨ãƒ‡ã‚£ã‚¿ã®grepæ¤œç´¢çµæœã‚’Frieve Editorã§æ´»ç”¨ã™ã‚‹ãŸã‚ã€ãƒ‡ãƒ¼ã‚¿åŠ å·¥ã™ã‚‹ã€‚
-#grepæ¤œç´¢çµæœãƒ•ã‚¡ã‚¤ãƒ«ã®åŒãƒ‘ã‚¹ãƒ»basename.fipã¨ã—ã¦å‡ºåŠ›ã™ã‚‹ã€‚
-#
+#ƒTƒNƒ‰ƒGƒfƒBƒ^‚ÌgrepŒŸõŒ‹‰Ê‚ğFrieve Editor‚ÅŠˆ—p‚·‚é‚½‚ßAƒf[ƒ^‰ÁH‚·‚éB
+#grepŒŸõŒ‹‰Êƒtƒ@ƒCƒ‹‚Ì“¯ƒpƒXEbasename.fip‚Æ‚µ‚Äo—Í‚·‚éB
+#Œ‹‰Êo—ÍŒ`®:ƒm[ƒ}ƒ‹Eƒtƒ@ƒCƒ‹–ˆA‚É‘Î‰B¬İ‚Í•s‰ÂB
 
 #split or match or replace Pattern
-$PTNtagVal   = '\s+[[](?:SJIS|EUC)[]]:\s+'
+$PTNtagVal   = '\s+[[](?:SJIS|EUC)[]]:?\s*'
 $PTNextpos   = '[.][a-zA-Z0-9]+[(]\d+[,]\d+[)]'
 $PTNPosition = '[(]\d+[,]\d+[)]'
-$PTNtosyo    = '(ã€.*ã€).*$'
+$PTNtosyo    = '(w.*x).*$'
+$PTNpathSum  = '^¡"(.*)"'
 
-#grepæ¤œç´¢çµæœãƒ•ã‚¡ã‚¤ãƒ«åã‚’ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ã‚ˆã‚Šå…¥åŠ›ã™ã‚‹
-Write-Host -ForegroundColor green -NoNewline "grepæ¤œç´¢çµæœãƒ•ã‚¡ã‚¤ãƒ«å?"
+# Œ‹‰Êo—ÍŒ`®
+enum outMode_t{
+    Normal		#ƒm[ƒ}ƒ‹
+    Summary		#ƒtƒ@ƒCƒ‹–ˆ
+    other
+}
+$isOutMode = [outMode_t]::other
+
+#grepŒŸõŒ‹‰Êƒtƒ@ƒCƒ‹–¼‚ğƒRƒ“ƒ\[ƒ‹‚æ‚è“ü—Í‚·‚é
+Write-Host -ForegroundColor green -NoNewline "grepŒŸõŒ‹‰Êƒtƒ@ƒCƒ‹–¼?"
 $tarfl = read-host
-#å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã™ã‚‹ã“ã¨ã‚’ç¢ºèªã™ã‚‹
+#“ü—Íƒtƒ@ƒCƒ‹‚ª‘¶İ‚·‚é‚±‚Æ‚ğŠm”F‚·‚é
 if(-not (Test-Path -Path $tarfl)){
-    Write-Host -ForegroundColor red -NoNewline "grepæ¤œç´¢çµæœãƒ•ã‚¡ã‚¤ãƒ«åãŒå­˜åœ¨ã—ã¾ã›ã‚“ã€‚å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã™ã€‚"
+    Write-Host -ForegroundColor red -NoNewline "grepŒŸõŒ‹‰Êƒtƒ@ƒCƒ‹–¼‚ª‘¶İ‚µ‚Ü‚¹‚ñBˆ—‚ğ’†’f‚µ‚Ü‚·B"
     exit
 }
 
-#å‡ºåŠ›ã®fipãƒ•ã‚¡ã‚¤ãƒ«åã‚’æ±ºå®šã™ã‚‹
+#o—Í‚Ìfipƒtƒ@ƒCƒ‹–¼‚ğŒˆ’è‚·‚é
 $fipfl = (get-item $tarfl).Directory.FullName+"\"+(get-item $tarfl).basename +".fip"
-Write-Host -ForegroundColor Yellow -NoNewline "fipãƒ•ã‚¡ã‚¤ãƒ«å:"
+Write-Host -ForegroundColor Yellow -NoNewline "fipƒtƒ@ƒCƒ‹–¼:"
 Write-Host $fipfl
 
-#grepæ¤œç´¢çµæœãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿è¾¼ã‚€
+#grepŒŸõŒ‹‰Êƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚Ş
 $CardData = Get-Content -Path $tarfl
 
-#-----    1.ã‚«ãƒ¼ãƒ‰æ•°ã‚’èª¿ã¹ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "ã‚«ãƒ¼ãƒ‰æšæ•°ã‚’é›†è¨ˆä¸­..."
+#-----    1.ƒJ[ƒh”‚ğ’²‚×‚é
+Write-Host -ForegroundColor Cyan -NoNewline "ƒJ[ƒh–‡”‚ğWŒv’†..."
 $CardData | ForEach-Object {
-    #æ¤œç´¢çµæœã‚’ã‚«ãƒ¼ãƒ‰ã®ã‚½ãƒ¼ã‚¹ã«å¤‰æ›ã™ã‚‹
-    if ($_.StartsWith("ãƒ•ã‚©ãƒ«ãƒ€")) {
-        $tarFolder = ($_ -split '\s+')[1] #ãƒ•ã‚©ãƒ«ãƒ€åã‚’å–å¾—
+    #ŒŸõŒ‹‰Ê‚ğƒJ[ƒh‚Ìƒ\[ƒX‚É•ÏŠ·‚·‚é
+    if ($_.StartsWith("ƒtƒHƒ‹ƒ_")) {
+        $tarFolder = ($_ -split '\s+')[1] #ƒtƒHƒ‹ƒ_–¼‚ğæ“¾
     }elseif($_.StartsWith($tarFolder)){
         $Cardnum ++
+    }elseif($_.StartsWith("¡`""+$tarFolder)){
+        $CardnumSum ++
     }
 } -Begin{
+    $isOutMode = [outMode_t]::other
     set-Variable -Name tarFolder -Value null
     set-Variable -Name cardnum -Value 0
+    set-Variable -Name cardnumSum -Value 0
 } -End{
-    Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
-    if($Cardnum -gt 0){
-        #å‡ºåŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ãªã„ã“ã¨ã‚’ç¢ºèªã™ã‚‹
+    Write-Host -ForegroundColor Cyan "Ï‚İ."
+    if(($Cardnum -gt 0 -and $CardnumSum -eq 0) -or ($Cardnum -eq 0 -and $CardnumSum -gt 0)){
+        if($Cardnum -gt 0){$isOutMode = [outMode_t]::Normal
+            Write-Host -ForegroundColor green "Œ‹‰Êo—ÍŒ`®:ƒm[ƒ}ƒ‹${Cardnum}–‡‚ ‚è‚Ü‚·B"
+        }
+        if($CardnumSum -gt 0){$isOutMode = [outMode_t]::Summary
+            $Cardnum = $CardnumSum@
+            Write-Host -ForegroundColor green "Œ‹‰Êo—ÍŒ`®:ƒtƒ@ƒCƒ‹–ˆ${Cardnum}–‡‚ ‚è‚Ü‚·B"
+        }
+        #o—Íƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚È‚¢‚±‚Æ‚ğŠm”F‚·‚é
         if(Test-Path -Path $fipfl){
-            Write-Host -ForegroundColor red -NoNewline "åŒåã®fipãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ã¾ã™ã€‚æ›´æ–°ã—ã¾ã™ã‹(y/n)?"
+            Write-Host -ForegroundColor red -NoNewline "“¯–¼‚Ìfipƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚Ü‚·BXV‚µ‚Ü‚·‚©(y/n)?"
             $ans = Read-Host 
             if ($ans.ToUpper() -eq "Y"){
                 Remove-Item -Path  $fipfl -Force
             }else{
-                Write-Host -ForegroundColor red "å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã™ã€‚"
+                Write-Host -ForegroundColor red "ˆ—‚ğ’†’f‚µ‚Ü‚·B"
                 exit
             }
         }
+    }elseif($Cardnum -gt 0 -and  $CardnumSum -gt 0 ){
+        Write-Host -ForegroundColor red "Œ‹‰Êo—ÍŒ`®:ƒm[ƒ}ƒ‹${Cardnum}–‡Aƒtƒ@ƒCƒ‹–ˆ${CardnumSum}–‡A¬İ‚Å‚«‚Ü‚¹‚ñBˆ—‚ğ’†’f‚µ‚Ü‚·B"
+        exit
     }else{
-        Write-Host -ForegroundColor red "ã‚«ãƒ¼ãƒ‰æ•°ã¯0æšã§ã—ãŸã€‚å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã™ã€‚"
+        Write-Host -ForegroundColor red "ƒJ[ƒh”‚Í0–‡‚Å‚µ‚½Bˆ—‚ğ’†’f‚µ‚Ü‚·B"
         exit
     }
 }
 
-#fipãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ˜ãƒƒãƒ€ãƒ¼éƒ¨ã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[Global]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+
+#fipƒtƒ@ƒCƒ‹‚Ìƒwƒbƒ_[•”‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[Global]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 ("[Global]",`
 "Version=7",`
 "Arrange=0",`
@@ -85,45 +109,64 @@ Write-Host -ForegroundColor Cyan -NoNewline "[Global]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­...
 "DateLimitation=0",`
 "DateLimitationDateType=0",`
 "DateLimitationType=0") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
+Write-Host -ForegroundColor Cyan "Ï‚İ."
 
-#ã‚«ãƒ¼ãƒ‰æšæ•°ã€ã‚«ãƒ¼ãƒ‰IDã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[Card]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+#ƒJ[ƒh–‡”AƒJ[ƒhID‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[Card]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 ("[Card]",`
 "CardID=-1",`
 ("Num=" + $Cardnum)) -join "`r`n"| Out-File -FilePath $fipfl -Append -Encoding default
 for ($i = 0; $i -lt $Cardnum; $i++) {
         $i.ToString() + "=" + $i | Out-File -FilePath $fipfl -Append -Encoding default
 }
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
+Write-Host -ForegroundColor Cyan "Ï‚İ."
 
-#[Link]ã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[Link]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+#[Link]‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[Link]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 ("[Link]",`
  "Num=0")-join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
+Write-Host -ForegroundColor Cyan "Ï‚İ."
 
-#Labelã‚’æŠ½å‡ºã™ã‚‹
-$labelValues = New-Object 'System.Collections.Generic.List[string]' # Listã‚’ä½œæˆ
+#Œ‹‰Êo—ÍŒ`®‚ªƒtƒ@ƒCƒ‹–ˆ(Summary)‚È‚çƒ^ƒCƒgƒ‹‚Æ–{•¶‚É•ª‚¯‚é
+if($isOutMode -eq [outMode_t]::Summary){
+    $CardData | ForEach-Object {
+        if ($_.StartsWith("ƒtƒHƒ‹ƒ_")) {
+            $tarFolder = ($_ -split '\s+')[1] #ƒtƒHƒ‹ƒ_–¼‚ğæ“¾
+        }elseif($_.StartsWith("¡`"" + $tarFolder)){
+            $curTitle =  ($_  -replace $PTNpathSum, '$1(1,1)') + ":"
+            $cardTitle += $curTitle
+        }elseif($_.StartsWith("E(")){
+            $cardBody += "${curTitle}$_" 
+        }
+    } -Begin{
+        set-Variable -Name tarFolder -Value null
+        set-Variable -Name cardTitle -Value @()
+        set-Variable -Name cardBody -Value @()
+    }
+    $CardData = $cardTitle
+}
+
+#Label‚ğ’Šo‚·‚é
+$labelValues = New-Object 'System.Collections.Generic.List[string]' # List‚ğì¬
 $CardData | ForEach-Object {
-    if ($_.StartsWith("ãƒ•ã‚©ãƒ«ãƒ€")) {
-        $tarFolder = ($_ -split '\s+')[1] #ãƒ•ã‚©ãƒ«ãƒ€åã‚’å–å¾—
-    }elseif($_.StartsWith($tarFolder)){
+    if ($_.StartsWith("ƒtƒHƒ‹ƒ_")) {
+        $tarFolder = ($_ -split '\s+')[1] #ƒtƒHƒ‹ƒ_–¼‚ğæ“¾
+    }elseif($isOutMode -eq [outMode_t]::Summary -or $_.StartsWith($tarFolder)){
         $titleBaseName = (($_  -split $PTNextPos)[0] -split '\\')[-1]
         if($titleBaseName -match $PTNtosyo){
-            #å›³æ›¸åã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
+            #}‘–¼‚ğƒ‰ƒxƒ‹‚·‚é
             $labelTosyo = $matches[$matches.count-1]
             if(-not $labelValues.Contains($labelTosyo)){
                 $labelValues.Add($labelTosyo)| Out-Null
             }
-            #è‘—è€…ã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
-            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split 'ã€') | ForEach-Object {
+            #’˜Ò‚ğƒ‰ƒxƒ‹‚·‚é
+            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split 'A') | ForEach-Object {
                 if(-not $_.Equals('') -and -not $labelValues.Contains($_)){
                     $labelValues.Add($_)| Out-Null
                 }
             }
         }else{
-            #ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ™ãƒ¼ã‚¹åã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
+            #ƒtƒ@ƒCƒ‹‚Ìƒx[ƒX–¼‚ğƒ‰ƒxƒ‹‚·‚é
             if(-not $labelValues.Contains($titleBaseName)){
                 $labelValues.Add($titleBaseName)| Out-Null
             }
@@ -134,8 +177,8 @@ $CardData | ForEach-Object {
     set-Variable -Name labelnum -Value 0
 }
 
-#[Label]ã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[Label]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+#[Label]‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[Label]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 ("[Label]",`
  ("Num=" + $labelValues.Count.ToString()) )-join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
 
@@ -148,42 +191,42 @@ foreach($item in $labelValues){
     $labelnum.ToString() + "=" + $labelColor + ",En1,Sh1,Hi0,Fo0,Si100,Na" +$item | Out-File -FilePath $fipfl -Append -Encoding default
     $labelnum ++
 }
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
+Write-Host -ForegroundColor Cyan "Ï‚İ."
 
-#[LinkLabel]ã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[LinkLabel]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+#[LinkLabel]‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[LinkLabel]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 ("[LinkLabel]",`
 "Num=0")-join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
+Write-Host -ForegroundColor Cyan "Ï‚İ."
 
-#ã‚«ãƒ¼ãƒ‰ãƒ‡ãƒ¼ã‚¿ã‚’å‡ºåŠ›ã™ã‚‹
-Write-Host -ForegroundColor Cyan -NoNewline "[CardData]ã‚»ã‚¯ã‚·ãƒ§ãƒ³å‡ºåŠ›ä¸­..."
+#ƒJ[ƒhƒf[ƒ^‚ğo—Í‚·‚é
+Write-Host -ForegroundColor Cyan -NoNewline "[CardData]ƒZƒNƒVƒ‡ƒ“o—Í’†..."
 "[CardData]"  | Out-File -FilePath $fipfl -Append -Encoding default
 $CardData | ForEach-Object {
-    #æ¤œç´¢çµæœã‚’ã‚«ãƒ¼ãƒ‰ãƒ‡ãƒ¼ã‚¿ã«å¤‰æ›ã™ã‚‹
-    if ($_.StartsWith("ãƒ•ã‚©ãƒ«ãƒ€")) {
-        $tarFolder = ($_ -split '\s+')[1] #ãƒ•ã‚©ãƒ«ãƒ€åã‚’å–å¾—
-    }elseif($_.StartsWith($tarFolder)){
-        #Labelå¾—ã‚‹
+    #ŒŸõŒ‹‰Ê‚ğƒJ[ƒhƒf[ƒ^‚É•ÏŠ·‚·‚é
+    if ($_.StartsWith("ƒtƒHƒ‹ƒ_")) {
+        $tarFolder = ($_ -split '\s+')[1] #ƒtƒHƒ‹ƒ_–¼‚ğæ“¾
+    }elseif($isOutMode -eq [outMode_t]::Summary -or $_.StartsWith($tarFolder)){
+        #Label“¾‚é
         $fipflInfo = ($_ -split $PTNtagVal)
         $title = ($fipflInfo[0] -split '\\')[-1]
         $titleBaseName = ($title -split $PTNextpos)[0]
         if($titleBaseName -match $PTNtosyo){
-            #å›³æ›¸åã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
+            #}‘–¼‚ğƒ‰ƒxƒ‹‚·‚é
             $labelTosyo = $matches[$matches.count-1]
             $labels = ($labelValues.IndexOf($labelTosyo) + 1).ToString()
-            #è‘—è€…ã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
-            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split 'ã€') | ForEach-Object {
+            #’˜Ò‚ğƒ‰ƒxƒ‹‚·‚é
+            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split 'A') | ForEach-Object {
                 if(-not $_.Equals('')){
                     $labels = $labels + ',' + ($labelValues.IndexOf($_) + 1).ToString()
                 }
             }
         }else{
-            #ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ™ãƒ¼ã‚¹åã‚’ãƒ©ãƒ™ãƒ«ã™ã‚‹
+            #ƒtƒ@ƒCƒ‹‚Ìƒx[ƒX–¼‚ğƒ‰ƒxƒ‹‚·‚é
             $labels = ($labelValues.IndexOf($titleBaseName) + 1).ToString()
         }
 
-        #ã‚¿ã‚¤ãƒ ã‚¹ã‚¿ãƒ³ãƒ—ã‚’å¾—ã‚‹
+        #ƒ^ƒCƒ€ƒXƒ^ƒ“ƒv‚ğ“¾‚é
         $entryPath = ($fipflInfo[0] -replace $PTNPosition)
         if(-not $entryPath.Equals($currPath)){
             $currPath = $entryPath
@@ -198,9 +241,17 @@ $CardData | ForEach-Object {
             }
        }
 
-        #ã‚«ãƒ¼ãƒ‰ãƒ‡ãƒ¼ã‚¿
-       ("15",`
-        ("Title:" + $title),`
+        #ƒJ[ƒhƒf[ƒ^
+        #----- ƒJ[ƒhƒf[ƒ^s”
+        if($isOutMode -eq [outMode_t]::Summary){
+            $cardLines = 15 + ($cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}).Count
+            $title = "¡" + $title -replace $PTNextpos
+        }else{
+            $cardLines = 15
+        }
+
+        ($cardLines, `
+        ("Title:" + $title ),`
         ("Label:" + $labels),`
         "Fixed:0",`
         ("X:" + $posX.ToString()),`
@@ -211,9 +262,19 @@ $CardData | ForEach-Object {
         ("Created:" + $dateCreated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
         ("Updated:" + $dateUpdated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
         ("Viewed:"  + $dateViewed.ToString("yyyy/MM/dd HH:mm:ss")) ,`
-        "-" ,`
-       "$($fipflInfo[1])" ,`
-       "âˆ",`
+        "-" ) -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
+        #-----ƒJ[ƒh–{‘Ì
+        if($isOutMode -eq [outMode_t]::Summary){
+            "¡`"" + $fipflInfo[0] -replace $PTNPosition,"`""| Out-File -FilePath $fipfl -Append -Encoding default
+            $tarptn = [regex]::Escape($fipflInfo[0])
+            $cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}| ForEach-Object {
+                $_ -replace "$tarptn" -replace $PTNtagVal | Out-File -FilePath $fipfl -Append -Encoding default
+            }
+        }else{
+           "$($fipflInfo[1])" | Out-File -FilePath $fipfl -Append -Encoding default
+        }
+        #----- ŠY“–ƒtƒ@ƒCƒ‹
+       ("‡",`
        "$($fipflInfo[0])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
         $posX += 0.023 ; $posY += 0.1
     }
@@ -224,6 +285,6 @@ $CardData | ForEach-Object {
     set-Variable -Name currDate -Value (Get-Date)
     set-Variable -Name currPath -Value null
 }
-Write-Host -ForegroundColor Cyan "æ¸ˆã¿."
-Write-Host -ForegroundColor green "çµ‚äº†ã—ã¾ã—ãŸã€‚"
+Write-Host -ForegroundColor Cyan "Ï‚İ."
+Write-Host -ForegroundColor green "I—¹‚µ‚Ü‚µ‚½B"
 
