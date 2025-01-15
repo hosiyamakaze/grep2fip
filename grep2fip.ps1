@@ -1,4 +1,4 @@
-#SJIS $Workfile: grep2fip.ps1 $$Revision: 14 $$Date: 25/01/13 23:26 $
+#SJIS $Workfile: grep2fip.ps1 $$Revision: 18 $$Date: 25/01/15 12:52 $
 #$NoKeywords: $
 #
 #サクラエディタのgrep検索結果をFrieve Editorで活用するため、データ加工する。
@@ -35,11 +35,11 @@ Write-Host -ForegroundColor Yellow -NoNewline "fipファイル名:"
 Write-Host $fipfl
 
 #grep検索結果ファイルを読み込む
-$CardData = Get-Content -Path $tarfl
+$CardDataRAW = Get-Content -Path $tarfl
 
 #-----    1.カード数を調べる
 Write-Host -ForegroundColor Cyan -NoNewline "カード枚数を集計中..."
-$CardData | ForEach-Object {
+$CardDataRAW | ForEach-Object {
     #検索結果をカードのソースに変換する
     if ($_.StartsWith("フォルダ")) {
         $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
@@ -53,16 +53,54 @@ $CardData | ForEach-Object {
     set-Variable -Name tarFolder -Value null
     set-Variable -Name cardnum -Value 0
     set-Variable -Name cardnumSum -Value 0
+    set-Variable -Name CardData -Value @()
+    set-Variable -Name cardTitle -Value @()
+    set-Variable -Name cardBody -Value @()
 } -End{
-    Write-Host -ForegroundColor Cyan "済み."
     if(($Cardnum -gt 0 -and $CardnumSum -eq 0) -or ($Cardnum -eq 0 -and $CardnumSum -gt 0)){
-        if($Cardnum -gt 0){$isOutMode = [outMode_t]::Normal
-            Write-Host -ForegroundColor green "結果出力形式:ノーマル${Cardnum}枚あります。"
+
+        #結果出力形式がノーマル(Normal)なら該当行のみにする
+        if($Cardnum -gt 0){
+            $isOutMode = [outMode_t]::Normal
+            $CardDataRAW | ForEach-Object {
+                if ($_.StartsWith("フォルダ")) {
+                    $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
+                }elseif($_.StartsWith($tarFolder)){
+                     $CardData += $_
+                }
+            } -Begin{
+                set-Variable -Name tarFolder -Value null
+                set-Variable -Name labelnum -Value 0
+            }
+            $CardData = $CardData | Select-Object -Unique
+            $Cardnum = $CardData.Count
         }
-        if($CardnumSum -gt 0){$isOutMode = [outMode_t]::Summary
-            $Cardnum = $CardnumSum　
-            Write-Host -ForegroundColor green "結果出力形式:ファイル毎${Cardnum}枚あります。"
+
+        #結果出力形式がファイル毎(Summary)ならタイトルと本文に分ける
+        if($CardnumSum -gt 0){
+            $isOutMode = [outMode_t]::Summary
+
+            $CardDataRAW | ForEach-Object {
+                if ($_.StartsWith("フォルダ")) {
+                    $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
+                }elseif($_.StartsWith("■`"" + $tarFolder)){
+                    $curTitle =  ($_  -replace $PTNpathSum, '$1(1,1)') + ":"
+                    $cardTitle += $curTitle
+                }elseif($_.StartsWith("・(")){
+                    $cardBody += "${curTitle}$_" 
+                }
+            } -Begin{
+                set-Variable -Name tarFolder -Value null
+                set-Variable -Name cardTitle -Value @()
+                set-Variable -Name cardBody -Value @()
+            }
+            $CardData = $cardTitle | Select-Object -Unique
+            $cardBody = $cardBody | Select-Object -Unique
+            $Cardnum = $CardData.count
         }
+        Write-Host -ForegroundColor Cyan "済み."
+        Write-Host -ForegroundColor green "カードは重複を取り除いて、${Cardnum}枚あります。"
+
         #出力ファイルが存在しないことを確認する
         if(Test-Path -Path $fipfl){
             Write-Host -ForegroundColor red -NoNewline "同名のfipファイルが存在します。更新しますか(y/n)?"
@@ -82,7 +120,6 @@ $CardData | ForEach-Object {
         exit
     }
 }
-
 
 #fipファイルのヘッダー部を出力する
 Write-Host -ForegroundColor Cyan -NoNewline "[Global]セクション出力中..."
@@ -127,49 +164,27 @@ Write-Host -ForegroundColor Cyan -NoNewline "[Link]セクション出力中..."
  "Num=0")-join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
 Write-Host -ForegroundColor Cyan "済み."
 
-#結果出力形式がファイル毎(Summary)ならタイトルと本文に分ける
-if($isOutMode -eq [outMode_t]::Summary){
-    $CardData | ForEach-Object {
-        if ($_.StartsWith("フォルダ")) {
-            $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
-        }elseif($_.StartsWith("■`"" + $tarFolder)){
-            $curTitle =  ($_  -replace $PTNpathSum, '$1(1,1)') + ":"
-            $cardTitle += $curTitle
-        }elseif($_.StartsWith("・(")){
-            $cardBody += "${curTitle}$_" 
-        }
-    } -Begin{
-        set-Variable -Name tarFolder -Value null
-        set-Variable -Name cardTitle -Value @()
-        set-Variable -Name cardBody -Value @()
-    }
-    $CardData = $cardTitle
-}
 
 #Labelを抽出する
 $labelValues = New-Object 'System.Collections.Generic.List[string]' # Listを作成
 $CardData | ForEach-Object {
-    if ($_.StartsWith("フォルダ")) {
-        $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
-    }elseif($isOutMode -eq [outMode_t]::Summary -or $_.StartsWith($tarFolder)){
-        $titleBaseName = (($_  -split $PTNextPos)[0] -split '\\')[-1]
-        if($titleBaseName -match $PTNtosyo){
-            #図書名をラベルする
-            $labelTosyo = $matches[$matches.count-1]
-            if(-not $labelValues.Contains($labelTosyo)){
-                $labelValues.Add($labelTosyo)| Out-Null
+    $titleBaseName = (($_  -split $PTNextPos)[0] -split '\\')[-1]
+    if($titleBaseName -match $PTNtosyo){
+        #図書名をラベルする
+        $labelTosyo = $matches[$matches.count-1]
+        if(-not $labelValues.Contains($labelTosyo)){
+            $labelValues.Add($labelTosyo)| Out-Null
+        }
+        #著者をラベルする
+        (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split '、') | ForEach-Object {
+            if(-not $_.Equals('') -and -not $labelValues.Contains($_)){
+                $labelValues.Add($_)| Out-Null
             }
-            #著者をラベルする
-            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split '、') | ForEach-Object {
-                if(-not $_.Equals('') -and -not $labelValues.Contains($_)){
-                    $labelValues.Add($_)| Out-Null
-                }
-            }
-        }else{
-            #ファイルのベース名をラベルする
-            if(-not $labelValues.Contains($titleBaseName)){
-                $labelValues.Add($titleBaseName)| Out-Null
-            }
+        }
+    }else{
+        #ファイルのベース名をラベルする
+        if(-not $labelValues.Contains($titleBaseName)){
+            $labelValues.Add($titleBaseName)| Out-Null
         }
     }
 } -Begin{
@@ -204,80 +219,76 @@ Write-Host -ForegroundColor Cyan -NoNewline "[CardData]セクション出力中..."
 "[CardData]"  | Out-File -FilePath $fipfl -Append -Encoding default
 $CardData | ForEach-Object {
     #検索結果をカードデータに変換する
-    if ($_.StartsWith("フォルダ")) {
-        $tarFolder = ($_ -split '\s+')[1] #フォルダ名を取得
-    }elseif($isOutMode -eq [outMode_t]::Summary -or $_.StartsWith($tarFolder)){
-        #Label得る
-        $fipflInfo = ($_ -split $PTNtagVal)
-        $title = ($fipflInfo[0] -split '\\')[-1]
-        $titleBaseName = ($title -split $PTNextpos)[0]
-        if($titleBaseName -match $PTNtosyo){
-            #図書名をラベルする
-            $labelTosyo = $matches[$matches.count-1]
-            $labels = ($labelValues.IndexOf($labelTosyo) + 1).ToString()
-            #著者をラベルする
-            (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split '、') | ForEach-Object {
-                if(-not $_.Equals('')){
-                    $labels = $labels + ',' + ($labelValues.IndexOf($_) + 1).ToString()
-                }
+    #Label得る
+    $fipflInfo = ($_ -split $PTNtagVal)
+    $title = ($fipflInfo[0] -split '\\')[-1]
+    $titleBaseName = ($title -split $PTNextpos)[0]
+    if($titleBaseName -match $PTNtosyo){
+        #図書名をラベルする
+        $labelTosyo = $matches[$matches.count-1]
+        $labels = ($labelValues.IndexOf($labelTosyo) + 1).ToString()
+        #著者をラベルする
+        (($titleBaseName -replace '[()]') -split ($labelTosyo -replace '[()]') -split '、') | ForEach-Object {
+            if(-not $_.Equals('')){
+                $labels = $labels + ',' + ($labelValues.IndexOf($_) + 1).ToString()
             }
-        }else{
-            #ファイルのベース名をラベルする
-            $labels = ($labelValues.IndexOf($titleBaseName) + 1).ToString()
         }
-
-        #タイムスタンプを得る
-        $entryPath = ($fipflInfo[0] -replace $PTNPosition)
-        if(-not $entryPath.Equals($currPath)){
-            $currPath = $entryPath
-            if($currPath -and (Test-Path -Path  $currPath)){
-                $dateCreated = (get-item $currPath).CreationTime
-                $dateUpdated = (get-item $currPath).LastWriteTime
-                $dateViewed = (get-item $currPath).LastAccessTime
-            }else{
-                $dateCreated = $currDate
-                $dateUpdated = $currDate
-                $dateViewed = $currDate
-            }
-       }
-
-        #カードデータ
-        #----- カードデータ行数
-        if($isOutMode -eq [outMode_t]::Summary){
-            $cardLines = 15 + ($cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}).Count
-            $title = "■" + $title -replace $PTNextpos
-        }else{
-            $cardLines = 15
-        }
-
-        ($cardLines, `
-        ("Title:" + $title ),`
-        ("Label:" + $labels),`
-        "Fixed:0",`
-        ("X:" + $posX.ToString()),`
-        ("Y:" + $posY.ToString()),`
-        "Size:100"  ,`
-        "Shape:2"   ,`
-        "Visible:1" ,`
-        ("Created:" + $dateCreated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
-        ("Updated:" + $dateUpdated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
-        ("Viewed:"  + $dateViewed.ToString("yyyy/MM/dd HH:mm:ss")) ,`
-        "-" ) -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
-        #-----カード本体
-        if($isOutMode -eq [outMode_t]::Summary){
-            "■`"" + $fipflInfo[0] -replace $PTNPosition,"`""| Out-File -FilePath $fipfl -Append -Encoding default
-            $tarptn = [regex]::Escape($fipflInfo[0])
-            $cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}| ForEach-Object {
-                $_ -replace "$tarptn" -replace $PTNtagVal | Out-File -FilePath $fipfl -Append -Encoding default
-            }
-        }else{
-           "$($fipflInfo[1])" | Out-File -FilePath $fipfl -Append -Encoding default
-        }
-        #----- 該当ファイル
-       ("∞",`
-       "$($fipflInfo[0])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
-        $posX += 0.023 ; $posY += 0.1
+    }else{
+        #ファイルのベース名をラベルする
+        $labels = ($labelValues.IndexOf($titleBaseName) + 1).ToString()
     }
+
+    #タイムスタンプを得る
+    $entryPath = ($fipflInfo[0] -replace $PTNPosition)
+    if(-not $entryPath.Equals($currPath)){
+        $currPath = $entryPath
+        if($currPath -and (Test-Path -Path  $currPath)){
+            $dateCreated = (get-item $currPath).CreationTime
+            $dateUpdated = (get-item $currPath).LastWriteTime
+            $dateViewed = (get-item $currPath).LastAccessTime
+        }else{
+            $dateCreated = $currDate
+            $dateUpdated = $currDate
+            $dateViewed = $currDate
+        }
+    }
+
+    #カードデータ
+    #----- カードデータ行数
+    if($isOutMode -eq [outMode_t]::Summary){
+        $cardLines = 15 + ($cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}).Count
+        $title = "■" + $title -replace $PTNextpos
+    }else{
+        $cardLines = 15
+    }
+
+    ($cardLines, `
+    ("Title:" + $title ),`
+    ("Label:" + $labels),`
+    "Fixed:0",`
+    ("X:" + $posX.ToString()),`
+    ("Y:" + $posY.ToString()),`
+    "Size:100"  ,`
+    "Shape:2"   ,`
+    "Visible:1" ,`
+    ("Created:" + $dateCreated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
+    ("Updated:" + $dateUpdated.ToString("yyyy/MM/dd HH:mm:ss")) ,`
+    ("Viewed:"  + $dateViewed.ToString("yyyy/MM/dd HH:mm:ss")) ,`
+    "-" ) -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
+    #-----カード本体
+    if($isOutMode -eq [outMode_t]::Summary){
+        "■`"" + $fipflInfo[0] -replace $PTNPosition,"`""| Out-File -FilePath $fipfl -Append -Encoding default
+        $tarptn = [regex]::Escape($fipflInfo[0])
+        $cardBody | Where-Object { $_.StartsWith("$($fipflInfo[0])")}| ForEach-Object {
+            $_ -replace "$tarptn" -replace $PTNtagVal | Out-File -FilePath $fipfl -Append -Encoding default
+        }
+    }else{
+        "$($fipflInfo[1])" | Out-File -FilePath $fipfl -Append -Encoding default
+    }
+    #----- 該当ファイル
+    ("∞",`
+    "$($fipflInfo[0])") -join "`r`n" | Out-File -FilePath $fipfl -Append -Encoding default
+    $posX += 0.023 ; $posY += 0.1
 } -Begin{
     set-Variable -Name tarFolder -Value null
     set-Variable -Name posX -Value 0.19
